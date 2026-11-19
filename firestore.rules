@@ -1,0 +1,216 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global safety net: deny all reads and writes by default
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Primitive Helpers ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // --- Validation Helpers ---
+    function isValidUserProfile(data) {
+      return data.userId is string &&
+             data.userId == request.auth.uid &&
+             data.displayName is string &&
+             data.displayName.size() >= 1 &&
+             data.displayName.size() <= 80 &&
+             (!('email' in data) || (data.email is string && data.email.size() <= 120)) &&
+             (data.monthlyBudget is int || data.monthlyBudget is float) &&
+             data.monthlyBudget > 0 &&
+             data.monthlyBudget <= 100000 &&
+             data.renewalAlertsEnabled is bool &&
+             data.trialWarningsEnabled is bool &&
+             data.weeklyDigestEnabled is bool &&
+             data.currencySymbol is string &&
+             data.currencySymbol.size() >= 1 &&
+             data.currencySymbol.size() <= 5;
+    }
+
+    function isValidSubscription(data) {
+      return data.userId is string &&
+             data.userId == request.auth.uid &&
+             data.name is string &&
+             data.name.size() >= 1 &&
+             data.name.size() <= 60 &&
+             (data.amount is int || data.amount is float) &&
+             data.amount >= 0 &&
+             data.amount <= 50000 &&
+             (!('monthlyCost' in data) || ((data.monthlyCost is int || data.monthlyCost is float) && data.monthlyCost >= 0 && data.monthlyCost <= 50000)) &&
+             data.cadence is string &&
+             data.cadence in ['MONTHLY', 'ANNUAL', 'WEEKLY'] &&
+             data.category is string &&
+             data.category in ['Entertainment', 'Productivity', 'Cloud & AI', 'Fitness', 'Utilities', 'Other'] &&
+             data.status is string &&
+             data.status in ['ACTIVE', 'TRIAL', 'PAUSED', 'CANCELLED'] &&
+             (!('nextBillingDate' in data) || (data.nextBillingDate is string && data.nextBillingDate.size() <= 40)) &&
+             data.nextBillingEpochDay is int &&
+             data.nextBillingEpochDay >= 0 &&
+             data.nextBillingEpochDay <= 100000 &&
+             data.brandColorHex is string &&
+             data.brandColorHex.size() >= 4 &&
+             data.brandColorHex.size() <= 16 &&
+             data.iconKey is string &&
+             data.iconKey.size() >= 1 &&
+             data.iconKey.size() <= 32 &&
+             (!('paymentLabel' in data) || (data.paymentLabel is string && data.paymentLabel.size() <= 40)) &&
+             (!('notes' in data) || (data.notes is string && data.notes.size() <= 240)) &&
+             data.reminderEnabled is bool;
+    }
+
+    // --- Collections ---
+    match /users/{userId} {
+      allow get: if isOwner(userId) && isValidId(userId);
+      allow list: if false;
+
+      allow create: if isOwner(userId) &&
+                       isValidId(userId) &&
+                       incoming().userId == userId &&
+                       incoming().keys().hasAll([
+                         'userId',
+                         'displayName',
+                         'monthlyBudget',
+                         'renewalAlertsEnabled',
+                         'trialWarningsEnabled',
+                         'weeklyDigestEnabled',
+                         'currencySymbol',
+                         'createdAt',
+                         'updatedAt'
+                       ]) &&
+                       incoming().keys().hasOnly([
+                         'userId',
+                         'displayName',
+                         'email',
+                         'monthlyBudget',
+                         'renewalAlertsEnabled',
+                         'trialWarningsEnabled',
+                         'weeklyDigestEnabled',
+                         'currencySymbol',
+                         'createdAt',
+                         'updatedAt'
+                       ]) &&
+                       incoming().createdAt is timestamp &&
+                       incoming().createdAt <= request.time &&
+                       incoming().updatedAt is timestamp &&
+                       incoming().updatedAt <= request.time &&
+                       isValidUserProfile(incoming());
+
+      allow update: if isOwner(userId) &&
+                       isValidId(userId) &&
+                       isValidUserProfile(incoming()) &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().updatedAt is timestamp &&
+                       incoming().updatedAt <= request.time &&
+                       incoming().diff(existing()).affectedKeys().hasOnly([
+                         'displayName',
+                         'email',
+                         'monthlyBudget',
+                         'renewalAlertsEnabled',
+                         'trialWarningsEnabled',
+                         'weeklyDigestEnabled',
+                         'currencySymbol',
+                         'updatedAt'
+                       ]);
+
+      allow delete: if isOwner(userId) && isValidId(userId);
+
+      match /subscriptions/{subscriptionId} {
+        allow get: if isOwner(userId) && isValidId(subscriptionId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(subscriptionId) &&
+                         incoming().userId == userId &&
+                         incoming().keys().hasAll([
+                           'userId',
+                           'name',
+                           'amount',
+                           'cadence',
+                           'category',
+                           'status',
+                           'nextBillingEpochDay',
+                           'brandColorHex',
+                           'iconKey',
+                           'reminderEnabled',
+                           'createdAt',
+                           'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId',
+                           'name',
+                           'amount',
+                           'monthlyCost',
+                           'cadence',
+                           'category',
+                           'status',
+                           'nextBillingDate',
+                           'nextBillingEpochDay',
+                           'brandColorHex',
+                           'iconKey',
+                           'paymentLabel',
+                           'notes',
+                           'reminderEnabled',
+                           'createdAt',
+                           'updatedAt'
+                         ]) &&
+                         incoming().createdAt is timestamp &&
+                         incoming().createdAt <= request.time &&
+                         incoming().updatedAt is timestamp &&
+                         incoming().updatedAt <= request.time &&
+                         isValidSubscription(incoming());
+
+        allow update: if isOwner(userId) &&
+                         isValidId(subscriptionId) &&
+                         isValidSubscription(incoming()) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().updatedAt is timestamp &&
+                         incoming().updatedAt <= request.time &&
+                         (
+                           incoming().diff(existing()).affectedKeys().hasOnly([
+                             'name',
+                             'amount',
+                             'monthlyCost',
+                             'cadence',
+                             'category',
+                             'status',
+                             'nextBillingDate',
+                             'nextBillingEpochDay',
+                             'brandColorHex',
+                             'iconKey',
+                             'paymentLabel',
+                             'notes',
+                             'reminderEnabled',
+                             'updatedAt'
+                           ]) ||
+                           incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt']) ||
+                           incoming().diff(existing()).affectedKeys().hasOnly(['reminderEnabled', 'updatedAt'])
+                         );
+
+        allow delete: if isOwner(userId) && isValidId(subscriptionId);
+      }
+    }
+  }
+}

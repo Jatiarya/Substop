@@ -1,0 +1,168 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Authenticated user settings, monthly budget goal, and alert preferences for SubStop.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Authenticated user UID matching the document ID."
+        },
+        "displayName": {
+          "type": "string",
+          "description": "Display name of the user."
+        },
+        "email": {
+          "type": "string",
+          "description": "Optional email address of the user."
+        },
+        "monthlyBudget": {
+          "type": "number",
+          "description": "Target monthly subscription budget in the user's currency."
+        },
+        "renewalAlertsEnabled": {
+          "type": "boolean",
+          "description": "Whether 3-day upcoming renewal alerts are enabled."
+        },
+        "trialWarningsEnabled": {
+          "type": "boolean",
+          "description": "Whether trial expiration warnings are enabled."
+        },
+        "weeklyDigestEnabled": {
+          "type": "boolean",
+          "description": "Whether weekly spend digest alerts are enabled."
+        },
+        "currencySymbol": {
+          "type": "string",
+          "description": "Currency symbol displayed across metrics (e.g., $)."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when profile was created (clients must write FieldValue.serverTimestamp())."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when profile was last updated (clients must write FieldValue.serverTimestamp())."
+        }
+      },
+      "required": [
+        "userId",
+        "displayName",
+        "monthlyBudget",
+        "renewalAlertsEnabled",
+        "trialWarningsEnabled",
+        "weeklyDigestEnabled",
+        "currencySymbol",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Subscription": {
+      "title": "Subscription",
+      "description": "A user's recurring subscription or free trial tracked in SubStop.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Owner user UID matching parent /users/{userId} path."
+        },
+        "name": {
+          "type": "string",
+          "description": "Service or vendor name (e.g., Netflix, Spotify, iCloud+)."
+        },
+        "amount": {
+          "type": "number",
+          "description": "Billing price per cycle."
+        },
+        "monthlyCost": {
+          "type": "number",
+          "description": "Normalized monthly cost of the subscription."
+        },
+        "cadence": {
+          "type": "string",
+          "enum": ["MONTHLY", "ANNUAL", "WEEKLY"],
+          "description": "Recurring billing cadence."
+        },
+        "category": {
+          "type": "string",
+          "enum": ["Entertainment", "Productivity", "Cloud & AI", "Fitness", "Utilities", "Other"],
+          "description": "Subscription category."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["ACTIVE", "TRIAL", "PAUSED", "CANCELLED"],
+          "description": "Current subscription lifecycle status."
+        },
+        "nextBillingDate": {
+          "type": "string",
+          "description": "Formatted next billing date string (e.g., Dec 2, 2026)."
+        },
+        "nextBillingEpochDay": {
+          "type": "integer",
+          "description": "Next billing or trial end date represented as UTC epoch day."
+        },
+        "brandColorHex": {
+          "type": "string",
+          "description": "Brand accent hex color for the service squircle icon."
+        },
+        "iconKey": {
+          "type": "string",
+          "description": "Icon identifier key for rendering the service emblem."
+        },
+        "paymentLabel": {
+          "type": "string",
+          "description": "Optional payment card or method label."
+        },
+        "notes": {
+          "type": "string",
+          "description": "Optional user notes or cancellation instructions."
+        },
+        "reminderEnabled": {
+          "type": "boolean",
+          "description": "Whether renewal reminder is enabled for this subscription."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when subscription was created (clients must write FieldValue.serverTimestamp())."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when subscription was last updated (clients must write FieldValue.serverTimestamp())."
+        }
+      },
+      "required": [
+        "userId",
+        "name",
+        "amount",
+        "cadence",
+        "category",
+        "status",
+        "nextBillingEpochDay",
+        "brandColorHex",
+        "iconKey",
+        "reminderEnabled",
+        "createdAt",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": {
+        "$ref": "#/entities/UserProfile"
+      },
+      "description": "User profile, budget goal, and alert preferences scoped by UID."
+    },
+    "/users/{userId}/subscriptions/{subscriptionId}": {
+      "schema": {
+        "$ref": "#/entities/Subscription"
+      },
+      "description": "User's recurring subscriptions subcollection isolated under their UID."
+    }
+  }
+}

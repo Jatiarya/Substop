@@ -1,0 +1,6 @@
+{
+  "name": "SubStop",
+  "description": "Subscription control center for tracking recurring spend, upcoming renewals, and budget health.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
